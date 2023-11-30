@@ -60,18 +60,108 @@ function checkWinner(tiles, setStrikeClass, setGameState) {
   //console.log("win");
 }
 
+function checkWinnerAI(tiles) {
+  for (const { combo, strikeClass } of winningCombinations) {
+    const tileValue1 = tiles[combo[0]];
+    const tileValue2 = tiles[combo[1]];
+    const tileValue3 = tiles[combo[2]];
+
+    if (
+      tileValue1 !== null &&
+      tileValue1 === tileValue2 &&
+      tileValue2 === tileValue3
+    ) {
+      //setStrikeClass(strikeClass);
+
+      if (tileValue1 === PLAYER_X) {
+        return "X";
+      } else {
+        return "O";
+      }
+    }
+  }
+
+  const areAllTilesFilled = tiles.every((tile) => tile !== null);
+  if (areAllTilesFilled) {
+    return "draw";
+  }
+  return null;
+  //console.log("win");
+}
+
+function bestMove(tiles) {
+  let bestScore = -Infinity;
+  let move;
+
+  for (let i = 0; i < 9; i++) {
+    if (tiles[i] === null) {
+      tiles[i] = PLAYER_O;
+      let score = minimax(tiles, 0, false);
+      //console.log(score);
+      tiles[i] = null;
+
+      if (score > bestScore) {
+        bestScore = score;
+        move = i;
+      }
+    }
+  }
+  return move;
+}
+
+let scores = {
+  X: -10,
+  O: 10,
+  draw: 0,
+};
+
+function minimax(tiles, depth, isMaximizing) {
+  let result = checkWinnerAI(tiles);
+  //console.log(result);
+
+  if (result !== null) {
+    return scores[result];
+  }
+
+  if (isMaximizing) {
+    let bestScore = -Infinity;
+    for (let i = 0; i < 9; i++) {
+      if (tiles[i] === null) {
+        tiles[i] = PLAYER_O;
+        let score = minimax(tiles, depth + 1, false);
+        tiles[i] = null;
+        bestScore = Math.max(score, bestScore);
+      }
+    }
+    return bestScore;
+  } else {
+    let bestScore = Infinity;
+    for (let i = 0; i < 9; i++) {
+      if (tiles[i] === null) {
+        tiles[i] = PLAYER_X;
+        let score = minimax(tiles, depth + 1, true);
+        tiles[i] = null;
+        bestScore = Math.min(score, bestScore);
+      }
+    }
+    return bestScore;
+  }
+}
+
 export default function App() {
   const [tiles, setTiles] = useState(Array(9).fill(null));
   const [turn, setTurn] = useState(PLAYER_X);
   const [strikeClass, setStrikeClass] = useState();
   const [gameState, setGameState] = useState(GameState.inProgress);
+  const [opponent, setOpponent] = useState("friend");
+  const [select, setSelect] = useState(0);
 
   const handleTileClick = (index) => {
-    if (gameState !== GameState.inProgress) {
+    if (select === 0) {
+      alert("Click set!");
       return;
     }
-
-    if (tiles[index] !== null) {
+    if (gameState !== GameState.inProgress || tiles[index] !== null) {
       return;
     }
 
@@ -86,11 +176,49 @@ export default function App() {
     }
   };
 
+  if (opponent === "computer") {
+    if (turn === PLAYER_O && gameState === GameState.inProgress) {
+      let available = [];
+
+      for (let i = 0; i < 9; i++) {
+        if (tiles[i] === null) {
+          available.push(i);
+        }
+      }
+
+      const l = available.length;
+      const index = available[Math.floor(Math.random() * l)];
+
+      setTimeout(() => {
+        const newTiles = [...tiles];
+        newTiles[index] = turn;
+        setTiles(newTiles);
+
+        setTurn(PLAYER_X);
+      }, 1000);
+    }
+  }
+  if (opponent === "ai") {
+    if (turn === PLAYER_O && gameState === GameState.inProgress) {
+      const index = bestMove(tiles);
+      //console.log(index);
+
+      setTimeout(() => {
+        const newTiles = [...tiles];
+        newTiles[index] = turn;
+        setTiles(newTiles);
+
+        setTurn(PLAYER_X);
+      }, 1000);
+    }
+  }
+
   const handleReset = () => {
     setGameState(GameState.inProgress);
     setTiles(Array(9).fill(null));
     setTurn(PLAYER_X);
     setStrikeClass(null);
+    setSelect(0);
   };
 
   useEffect(() => {
@@ -112,14 +240,78 @@ export default function App() {
   return (
     <div>
       <h1>Tic Tac Toe</h1>
+      <Opponent
+        select={select}
+        setSelect={setSelect}
+        opponent={opponent}
+        onSetOpponent={setOpponent}
+      />
       <Board
         turn={turn}
         tiles={tiles}
         onTileClick={handleTileClick}
         strikeClass={strikeClass}
       />
-      <GameOver gameState={gameState} />
+      <GameOver gameState={gameState} opponent={opponent} />
       <Reset gameState={gameState} onReset={handleReset} />
+    </div>
+  );
+}
+
+function Opponent({ select, setSelect, opponent, onSetOpponent }) {
+  if (select === 1) {
+    return (
+      <div className="opponent">
+        <div className="opponent-name">Playing against {opponent}!</div>
+      </div>
+    );
+  }
+  return (
+    <div className="opponent">
+      <div className="top-div">
+        <div>
+          <input
+            type="radio"
+            id="friend"
+            value="friend"
+            name="opponent"
+            checked={opponent === "friend"}
+            disabled={select === 1}
+            onChange={() => onSetOpponent("friend")}
+          />
+          <label htmlFor="friend">Friend</label>
+        </div>
+
+        <div>
+          <input
+            type="radio"
+            id="computer"
+            value="computer"
+            name="opponent"
+            checked={opponent === "computer"}
+            disabled={select === 1}
+            onChange={() => onSetOpponent("computer")}
+          />
+          <label htmlFor="computer">Computer</label>
+        </div>
+        <div>
+          <input
+            type="radio"
+            id="AI"
+            value="AI"
+            name="opponent"
+            checked={opponent === "ai"}
+            disabled={select === 1}
+            onChange={() => onSetOpponent("ai")}
+          />
+          <label htmlFor="AI">AI</label>
+        </div>
+      </div>
+      <div className="bottom-div">
+        <button className="set-button" onClick={() => setSelect(1)}>
+          Set
+        </button>
+      </div>
     </div>
   );
 }
