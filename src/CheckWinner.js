@@ -1,3 +1,4 @@
+/* eslint-disable no-unused-vars */
 import GameState from "./GameState";
 
 const PLAYER_X = "X";
